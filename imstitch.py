@@ -275,15 +275,19 @@ def main(imgfile, output):
 
 
 imgfile_help = """
-image files to stitich, if this is not specified, the program will try to find all jpg files in the current directory.
-if this is specified, and --dir is also specified, the images in the --dir will be added to the list.
+Image files to stitch, if this is not specified, the program will 
+try to find all jpg files in the current directory. If this is 
+specified, and --dir is also specified, the images in the --dir 
+will be added to the list.
 """
 
 program_description = """
-The program find the matching points between images, and stitch them together.
-The images should be in the same direction, or, one image can overlap the other image 
-with only a transition transformation. In addition, the overlap area should be large 
-enough to find enough matching points.\nhello
+The program is designed to identify corresponding points between images and 
+integrate them to form a seamless composite. For successful integration, 
+the images must either be oriented in the same direction or possess an 
+overlapping region with a smooth transition between them. Moreover, the 
+overlapping area must be sufficiently large to ensure an adequate number 
+of matching points can be identified.
 """
 
 
