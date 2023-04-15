@@ -26,6 +26,7 @@ import sys
 REQUIRE_MATCH_POINT = 20
 MATCH_THRESHOLD = 0.5  # the smaller, the better
 FIND_TRANSITION_TRHESHOLD = 1.3  # the bigger, the stricter
+CLUSTER_MAX_DISTANCE = 5  # the bigger, the more points are clustered
 
 
 def show_image(cvimage):
@@ -49,30 +50,35 @@ def find_good_match(img1, img2):
     return keypoints1, keypoints2, good_matches
 
 
-def findTransition(src_points: np.array, dst_points: np.array, threshold: float = 1.5):
+def findTransition(src_points: np.array, dst_points: np.array, threshold: float = 1.5, max_dis=5):
     # all transition vectors
     trans_vecs = dst_points - src_points
 
     # find the most frequent transition vector
-    # use 1-means to find the most frequent transition vector
+    # use a modified k-means to find the most frequent transition vector
     p2id = {}
     id2cnt = {}
     candidate_points = np.array([])
     vec_leaders = np.zeros(len(trans_vecs))
+
     for i in range(trans_vecs.shape[0]):
         vec = trans_vecs[i]
-        if tuple(vec) not in p2id:
+        if len(p2id) == 0:
+            min_idx = -1
+        else:
+            distance = np.linalg.norm(candidate_points - vec, axis=1)
+            min_idx = np.argmin(distance)
+
+        if min_idx == -1 or distance[min_idx] > max_dis:
             id = len(p2id)
             p2id[tuple(vec)] = id
-            id2cnt[id] = 0
+            id2cnt[id] = 1
             candidate_points = np.array(list(p2id.keys()))
-
-        distance = np.linalg.norm(candidate_points - vec, axis=1)
-        min_idx = np.argmin(distance)
-        leader = tuple(candidate_points[min_idx])
-        id = p2id[leader]
-        vec_leaders[i] = id
-        id2cnt[id] += 1
+        else:
+            leader = tuple(candidate_points[min_idx])
+            id = p2id[leader]
+            vec_leaders[i] = id
+            id2cnt[id] += 1
 
     rank = sorted(id2cnt.items(), key=lambda x: x[1], reverse=True)
     if len(rank) < 2 or rank[0][1] / rank[1][1] < threshold:
@@ -102,7 +108,7 @@ def stitch_two_images(img1, img2):
     src_pts = np.float32([keypoints1[m.queryIdx].pt for m in good_matches])
     dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in good_matches])
     # H, mask = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
-    H, mask = findTransition(dst_pts, src_pts, threshold=FIND_TRANSITION_TRHESHOLD)
+    H, mask = findTransition(dst_pts, src_pts, threshold=FIND_TRANSITION_TRHESHOLD, max_dis=CLUSTER_MAX_DISTANCE)
 
     if H is None:
         raise Exception("no homography matrix found")
@@ -157,7 +163,7 @@ def list_jpg_files(dirpath):
     return [
         path.join(dirpath, e)
         for e in os.listdir(dirpath)
-        if path.isfile(e) and e.lower()[-3:] in ["jpg", "png"]
+        if path.isfile(path.join(dirpath, e)) and e.lower()[-3:] in ["jpg", "png"]
     ]
 
 
@@ -304,7 +310,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    if not args.imgfiles:
+    if not args.imgfiles and not args.dir:
         args.dir = "."
     if args.dir:
         args.imgfiles.extend(list_jpg_files(args.dir))
